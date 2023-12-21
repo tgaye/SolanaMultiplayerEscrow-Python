@@ -23,10 +23,13 @@ class LobbyInfo:
     wager: u64
 
 class GameGear(Program):
+    owner: PublicKey
+
     def initialize(self):
         self.game_counter = 0
         self.platform_fees = 0
         self.max_lobbies = 10
+        self.owner = PublicKey("8C4nNMisTKw9XwGhoK7GodMuwPWd3FPZPEis9KDDEnUt")
 
     def deposit(self, ctx, player: Player, amount: u64):
         # Overflow check
@@ -41,12 +44,14 @@ class GameGear(Program):
         player.balance -= amount
 
     def withdraw_fees(self, ctx, owner: Signer):
+        assert ctx.accounts.signer.public_key == self.owner, "Unauthorized access"
         fees = self.platform_fees
         self.platform_fees = 0
         # Overflow check not needed for zeroing a value
         Token.transfer(ctx, fees, ctx.accounts.platform_token_account, ctx.accounts.owner_token_account)
 
     def create_game(self, ctx, owner: Signer, player1: PublicKey, player2: PublicKey, wager: u64):
+        assert ctx.accounts.signer.public_key == self.owner, "Unauthorized access"
         fee = wager // 20
         total_deduction = wager + fee
         p1 = ctx.accounts.get(player1)
@@ -74,6 +79,7 @@ class GameGear(Program):
         return game_id
 
     def resolve_game(self, ctx, game_id: u64, winner: PublicKey):
+        assert ctx.accounts.signer.public_key == self.owner, "Unauthorized access"
         game = ctx.accounts.games[game_id]
         assert game.is_active, "Game is not active"
 
@@ -102,6 +108,7 @@ class GameGear(Program):
         del ctx.accounts.games[game_id]
 
     def set_max_lobbies(self, ctx, owner: Signer, max_lobbies: u64):
+        assert ctx.accounts.signer.public_key == self.owner, "Unauthorized access"
         self.max_lobbies = max_lobbies
 
     def get_all_game_lobbies(self, ctx) -> list[LobbyInfo]:
